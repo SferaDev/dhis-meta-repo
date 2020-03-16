@@ -1,12 +1,17 @@
 import { program } from "commander";
-import { D2Api, D2ApiDefault, D2ModelSchemas, Pager } from "d2-api";
+import { D2ApiDefault, D2ModelSchemas, Pager } from "d2-api";
 import fs from "fs-extra";
 import _ from "lodash";
 import log4js from "log4js";
 import moment from "moment";
-import { Clone, Cred, Reference, Repository, Signature } from "nodegit";
+import { Clone } from "nodegit";
 import path from "path";
 import tmp from "tmp";
+import { configureLogger } from "./logger";
+import { MetadataChange } from "./types";
+import { writeMetadataToFile } from "./utils/files";
+import { buildFetchOpts, commitChanges } from "./utils/git";
+import { fetchApi } from "./utils/metadata";
 
 program.option("-c, --config <path>", "configuration file", "./config.json");
 program.parse(process.argv);
@@ -34,30 +39,8 @@ const {
     logger: { level: loggerLevel = "trace", fileName: loggerFileName = "debug.log" } = {},
 } = fs.readJSONSync(program.config, { throws: false }) ?? {};
 
-log4js.configure({
-    appenders: {
-        file: {
-            type: "file",
-            filename: loggerFileName,
-        },
-        console: { type: "console" },
-    },
-    categories: {
-        default: {
-            appenders: ["console"],
-            level: "info",
-        },
-        debug: {
-            appenders: ["file"],
-            level: loggerLevel,
-        },
-    },
-});
-
+configureLogger({ loggerLevel, loggerFileName });
 const logger = log4js.getLogger();
-logger.level = loggerLevel;
-
-logger.debug("config", program.config);
 
 const api = new D2ApiDefault({
     baseUrl,
@@ -68,115 +51,6 @@ const workingDir = tmp.dirSync({ keep: debug });
 logger.debug(`Working dir: ${workingDir.name}`);
 
 const statusFile = workingDir.name + path.sep + statusFileName;
-
-const fetchApi = async (
-    api: D2Api,
-    model: string,
-    { page = 1, pageSize = 10000, lastUpdatedFilter = undefined }
-): Promise<{ objects: any[]; pager: Pager }> => {
-    //@ts-ignore
-    return api.models[model]
-        .get({
-            fields: {
-                $owner: true,
-                lastUpdatedBy: {
-                    id: true,
-                    name: true,
-                    userCredentials: { username: true },
-                },
-            },
-            paging: true,
-            page,
-            pageSize,
-            filter: lastUpdatedFilter
-                ? {
-                      lastUpdated: {
-                          gt: moment(lastUpdatedFilter).toISOString(),
-                      },
-                  }
-                : undefined,
-        })
-        .getData();
-};
-
-export function buildFetchOpts({ publicKey, privateKey, passphrase }: any) {
-    return {
-        callbacks: {
-            certificateCheck: function() {
-                return 0;
-            },
-            credentials: function(_url: string, username: string) {
-                return Cred.sshKeyNew(username, publicKey, privateKey, passphrase);
-            },
-        },
-    };
-}
-
-const buildFile = (model: string, id: string, name: string) => {
-    return model + path.sep + `${id}_${name}.json`;
-};
-
-const addObjects = async (model: keyof D2ModelSchemas, objects: any[]) => {
-    for (const object of objects) {
-        const file = buildFile(model, object.id, object.name);
-        fs.outputJSON(workingDir.name + path.sep + file, object, { spaces: 4 });
-    }
-};
-
-interface MetadataChange {
-    model: string;
-    id: string;
-    name: string;
-    lastUpdated?: Date;
-    lastUpdatedBy?: {
-        id: string;
-        name: string;
-        userCredentials: { username: string };
-    };
-}
-
-const commitChanges = async (repo: Repository, items: MetadataChange[]) => {
-    const groups = _.groupBy(items, ({ lastUpdated, lastUpdatedBy }) => {
-        const dayOfYear = moment(lastUpdated).format("YYYY-MM-DD");
-        const {
-            id = "deleted",
-            userCredentials: { username = "unknown" } = {},
-            name = "Deleted user",
-        } = lastUpdatedBy ?? {};
-        return [dayOfYear, id, username, name].join("_");
-    });
-
-    for (const group in groups) {
-        const [authorDate, authorId, authorUsername, authorName] = group.split("_");
-        const filesToAdd = groups[group].map(({ model, id, name }) => buildFile(model, id, name));
-        const date = moment(authorDate);
-        const author = Signature.create(
-            authorName,
-            `${authorUsername}@${authorId}`,
-            date.unix(),
-            date.utcOffset()
-        );
-        const commiter = Signature.now(commiterName, commiterEmail);
-        await repo.createCommitOnHead(
-            filesToAdd,
-            hideAuthor ? commiter : author,
-            commiter,
-            `Metadata changes on ${date.utc()} by ${authorName}`
-        );
-    }
-
-    const gitIndex = await repo.refreshIndex();
-    await gitIndex.addAll();
-    gitIndex.write();
-    const oid = await gitIndex.writeTree();
-    const head = await Reference.nameToId(repo, "HEAD");
-    const parent = await repo.getCommit(head);
-    const commiter = Signature.now("DHIS Meta Repo", "sferadev@gmail.com");
-
-    await repo.createCommit("HEAD", commiter, commiter, "Update remote DHIS meta repo", oid, [
-        parent,
-    ]);
-};
 
 const start = async () => {
     /**
@@ -209,7 +83,7 @@ const start = async () => {
                 page = pager.page + 1;
                 pageCount = pager.pageCount;
 
-                addObjects(model, objects);
+                writeMetadataToFile(model, objects, workingDir.name);
                 items.push(
                     ...objects.map(({ id, name, lastUpdated, lastUpdatedBy }) => ({
                         model,
@@ -226,7 +100,7 @@ const start = async () => {
     }
 
     fs.writeJSON(statusFile, { lastUpdated: moment().toISOString() }, { spaces: 4 });
-    await commitChanges(repo, items);
+    await commitChanges(repo, items, { commiterName, commiterEmail, hideAuthor });
 
     if (pushToRemote) {
         const remote = await repo.getRemote("origin");
