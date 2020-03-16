@@ -4,7 +4,7 @@ import { Config } from "../types";
 export const configureLogger = ({ loggerFileName, loggerLevel }: Config) => {
     log4js.configure({
         appenders: {
-            file: {
+            debug: {
                 type: "file",
                 filename: loggerFileName,
             },
@@ -13,11 +13,11 @@ export const configureLogger = ({ loggerFileName, loggerLevel }: Config) => {
         categories: {
             default: {
                 appenders: ["console"],
-                level: "info",
+                level: loggerLevel,
             },
             debug: {
-                appenders: ["file"],
-                level: loggerLevel,
+                appenders: ["debug"],
+                level: "all",
             },
         },
     });

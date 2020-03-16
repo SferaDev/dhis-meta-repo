@@ -1,13 +1,17 @@
 import { D2ModelSchemas } from "d2-api";
 import fs from "fs-extra";
+import _ from "lodash";
 import moment from "moment";
 import path from "path";
 import tmp from "tmp";
 import { Config } from "../types";
 import { getLogger } from "./logger";
 
-export const buildFileName = (model: string, id: string, name: string) => {
-    return model + path.sep + `${id}_${name}.json`;
+export const buildFileName = (model: string, { id, name, level }: any) => {
+    const cleanName = name ? name.split(path.sep).join("-") : undefined;
+    const fileName = `${[id, cleanName].join("_")}.json`;
+    const orgUnitLevel = level ? `level-${level}` : undefined;
+    return _.compact([model, orgUnitLevel, fileName]).join(path.sep);
 };
 
 export const writeMetadataToFile = async (
@@ -16,7 +20,7 @@ export const writeMetadataToFile = async (
     workingDir: string
 ) => {
     for (const object of objects) {
-        const file = buildFileName(model, object.id, object.name);
+        const file = buildFileName(model, object);
         fs.outputJSON(workingDir + path.sep + file, object, { spaces: 4 });
     }
 };
