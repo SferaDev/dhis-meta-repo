@@ -13,20 +13,20 @@ program.parse(process.argv);
 
 // Read configuration properties and start-up logger
 const config = buildConfig(program.config);
+const { baseUrl, dhisUsername, dhisPassword, temporal, pushToRemote } = config;
 configureLogger(config);
 
 // Set up connection with DHIS2
-const { baseUrl, dhisUsername, dhisPassword } = config;
 const api = new D2ApiDefault({
     baseUrl,
     auth: { username: dhisUsername, password: dhisPassword },
 });
 
+// Create temporal folder to store repository
+const { name: workingDirPath, removeCallback: removeTemporalFolder } = createWorkingDir(config);
+
 // Main script method
 const start = async () => {
-    // Create temporal folder to store repository
-    const { name: workingDirPath, removeCallback: removeTemporalFolder } = createWorkingDir(config);
-
     // Clone repo and branch to local temporal folder
     const repo = await cloneRepo(workingDirPath, config);
 
@@ -41,11 +41,15 @@ const start = async () => {
 
     // Commit changes, push to remote and delete temporal folder
     await commitChanges(repo, items, config);
-    const { pushToRemote, temporal } = config;
     if (pushToRemote) await pushToOrigin(repo, config);
-    if (temporal) removeTemporalFolder();
 };
 
 start()
-    .then(() => getLogger("Main").debug("Execution finished"))
-    .catch(e => getLogger("Main").fatal(e));
+    .then(() => {
+        getLogger("Main").debug("Execution finished");
+        if (temporal) removeTemporalFolder();
+    })
+    .catch(e => {
+        getLogger("Main").fatal(e);
+        if (temporal) removeTemporalFolder();
+    });
