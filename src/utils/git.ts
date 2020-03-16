@@ -2,6 +2,7 @@ import _ from "lodash";
 import moment from "moment";
 import { Clone, Cred, Reference, Repository, Signature } from "nodegit";
 import { Config, MetadataChange } from "../types";
+import { buildFileName } from "./files";
 import { getLogger } from "./logger";
 
 export function buildFetchOpts({ publicKey, privateKey, passphrase }: any) {
@@ -34,7 +35,9 @@ export const commitChanges = async (
 
     for (const group in groups) {
         const [authorDate, authorId, authorUsername, authorName] = group.split("_");
-        const filesToAdd = groups[group].map(({ model, id, name }) => buildFile(model, id, name));
+        const filesToAdd = groups[group].map(({ model, ...object }) =>
+            buildFileName(model, object)
+        );
         const date = moment(authorDate);
         const author = Signature.create(
             authorName,

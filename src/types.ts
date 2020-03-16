@@ -2,6 +2,7 @@ export interface MetadataChange {
     model: string;
     id: string;
     name: string;
+    level: number;
     lastUpdated?: Date;
     lastUpdatedBy?: {
         id: string;

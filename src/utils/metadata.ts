@@ -88,10 +88,11 @@ export const processMetadata = async ({
 
             if (model !== "organisationUnits")
                 items.push(
-                    ...objects.map(({ id, name, lastUpdated, lastUpdatedBy }) => ({
+                    ...objects.map(({ id, name, level, lastUpdated, lastUpdatedBy }) => ({
                         model,
                         id,
                         name,
+                        level,
                         lastUpdated,
                         lastUpdatedBy,
                     }))
