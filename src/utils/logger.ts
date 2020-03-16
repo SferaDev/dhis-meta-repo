@@ -1,12 +1,7 @@
 import log4js from "log4js";
+import { Config } from "../types";
 
-export const configureLogger = ({
-    loggerFileName,
-    loggerLevel,
-}: {
-    loggerFileName: string;
-    loggerLevel: string;
-}) => {
+export const configureLogger = ({ loggerFileName, loggerLevel }: Config) => {
     log4js.configure({
         appenders: {
             file: {
@@ -26,4 +21,10 @@ export const configureLogger = ({
             },
         },
     });
+};
+
+export const getLogger = (namespace?: string) => {
+    const logger = log4js.getLogger(namespace);
+    logger.level = "all";
+    return logger;
 };

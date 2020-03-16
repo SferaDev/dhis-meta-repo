@@ -1,8 +1,8 @@
 import _ from "lodash";
-import log4js from "log4js";
 import moment from "moment";
 import { Clone, Cred, Reference, Repository, Signature } from "nodegit";
 import { Config, MetadataChange } from "../types";
+import { getLogger } from "./logger";
 
 export function buildFetchOpts({ publicKey, privateKey, passphrase }: any) {
     return {
@@ -85,5 +85,5 @@ export const pushToOrigin = async (
         ["HEAD:refs/heads/" + gitBranch],
         buildFetchOpts({ publicKey, privateKey, passphrase })
     );
-    log4js.getLogger("Git").info("[GIT] Pushed to " + gitBranch);
+    getLogger("Git").info("[GIT] Pushed to " + gitBranch);
 };

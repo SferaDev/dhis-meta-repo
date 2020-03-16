@@ -1,9 +1,10 @@
 import { D2ModelSchemas } from "d2-api";
 import fs from "fs-extra";
-import log4js from "log4js";
+import moment from "moment";
 import path from "path";
 import tmp from "tmp";
 import { Config } from "../types";
+import { getLogger } from "./logger";
 
 export const buildFileName = (model: string, id: string, name: string) => {
     return model + path.sep + `${id}_${name}.json`;
@@ -22,12 +23,18 @@ export const writeMetadataToFile = async (
 
 export const createWorkingDir = ({ debug }: Config) => {
     const workingDir = tmp.dirSync({ keep: debug });
-    log4js.getLogger("Files").debug(`Working dir: ${workingDir.name}`);
+    getLogger("Files").debug(`Working dir: ${workingDir.name}`);
     return workingDir;
 };
 
 export const getStatusFile = (workingDirPath: string, { statusFileName }: Config) => {
-    const statusFile = workingDirPath + path.sep + statusFileName;
-    fs.ensureFileSync(statusFile);
-    return fs.readJSONSync(statusFile, { throws: false }) ?? {};
+    const statusFilePath = workingDirPath + path.sep + statusFileName;
+    fs.ensureFileSync(statusFilePath);
+    return fs.readJSONSync(statusFilePath, { throws: false }) ?? {};
+};
+
+export const updateLastUpdated = (workingDirPath: string, { statusFileName }: Config) => {
+    const statusFilePath = workingDirPath + path.sep + statusFileName;
+    fs.ensureFileSync(statusFilePath);
+    fs.writeJSON(statusFilePath, { lastUpdated: moment().toISOString() }, { spaces: 4 });
 };

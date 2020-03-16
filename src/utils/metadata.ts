@@ -1,8 +1,8 @@
 import { D2Api, D2ModelSchemas, Pager } from "d2-api";
-import log4js from "log4js";
 import moment from "moment";
 import { MetadataChange } from "../types";
 import { writeMetadataToFile } from "./files";
+import { getLogger } from "./logger";
 
 export const fields = {
     $owner: true,
@@ -55,7 +55,7 @@ export const processMetadata = async ({
 
     for (const model of models) {
         try {
-            log4js.getLogger("Metadata").debug(`Fetching model ${model}`);
+            getLogger("Metadata").debug(`Fetching model ${model}`);
             let page = 1;
             let pageCount = 1;
 
@@ -83,7 +83,7 @@ export const processMetadata = async ({
                 );
             }
         } catch (e) {
-            log4js.getLogger("Metadata").debug(`Ignoring model ${model}`);
+            getLogger("Metadata").debug(`Ignoring model ${model}`);
         }
     }
 
