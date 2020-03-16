@@ -1,0 +1,4 @@
+package.json
+build/
+dist/
+dhis-meta-repo.js
