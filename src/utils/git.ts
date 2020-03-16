@@ -1,7 +1,8 @@
 import _ from "lodash";
+import log4js from "log4js";
 import moment from "moment";
-import { Cred, Reference, Repository, Signature } from "nodegit";
-import { MetadataChange } from "../types";
+import { Clone, Cred, Reference, Repository, Signature } from "nodegit";
+import { Config, MetadataChange } from "../types";
 
 export function buildFetchOpts({ publicKey, privateKey, passphrase }: any) {
     return {
@@ -16,7 +17,11 @@ export function buildFetchOpts({ publicKey, privateKey, passphrase }: any) {
     };
 }
 
-export const commitChanges = async (repo: Repository, items: MetadataChange[], { commiterName, commiterEmail, hideAuthor }: { commiterName: string, commiterEmail: string, hideAuthor: boolean }) => {
+export const commitChanges = async (
+    repo: Repository,
+    items: MetadataChange[],
+    { commiterName, commiterEmail, hideAuthor }: Config
+) => {
     const groups = _.groupBy(items, ({ lastUpdated, lastUpdatedBy }) => {
         const dayOfYear = moment(lastUpdated).format("YYYY-MM-DD");
         const {
@@ -57,4 +62,28 @@ export const commitChanges = async (repo: Repository, items: MetadataChange[], {
     await repo.createCommit("HEAD", commiter, commiter, "Update remote DHIS meta repo", oid, [
         parent,
     ]);
+};
+
+export const cloneRepo = async (
+    workingDirPath: string,
+    { gitRepo, publicKey, privateKey, passphrase, gitBranch }: Config
+) => {
+    if (!gitRepo) throw new Error("You need to specify a remote git repository");
+
+    return Clone.clone(gitRepo, workingDirPath, {
+        fetchOpts: buildFetchOpts({ publicKey, privateKey, passphrase }),
+        checkoutBranch: gitBranch,
+    });
+};
+
+export const pushToOrigin = async (
+    repo: Repository,
+    { gitBranch, publicKey, privateKey, passphrase }: Config
+) => {
+    const remote = await repo.getRemote("origin");
+    await remote.push(
+        ["HEAD:refs/heads/" + gitBranch],
+        buildFetchOpts({ publicKey, privateKey, passphrase })
+    );
+    log4js.getLogger("Git").info("[GIT] Pushed to " + gitBranch);
 };

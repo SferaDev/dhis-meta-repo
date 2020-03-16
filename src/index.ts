@@ -1,122 +1,57 @@
 import { program } from "commander";
-import { D2ApiDefault, D2ModelSchemas, Pager } from "d2-api";
+import { D2ApiDefault, D2ModelSchemas } from "d2-api";
 import fs from "fs-extra";
 import _ from "lodash";
 import log4js from "log4js";
 import moment from "moment";
-import { Clone } from "nodegit";
-import path from "path";
-import tmp from "tmp";
-import { configureLogger } from "./logger";
-import { MetadataChange } from "./types";
-import { writeMetadataToFile } from "./utils/files";
-import { buildFetchOpts, commitChanges } from "./utils/git";
-import { fetchApi } from "./utils/metadata";
+import { buildConfig } from "./utils/config";
+import { createWorkingDir, getStatusFile } from "./utils/files";
+import { cloneRepo, commitChanges, pushToOrigin } from "./utils/git";
+import { configureLogger } from "./utils/logger";
+import { processMetadata } from "./utils/metadata";
 
+// Initialize CLI program
 program.option("-c, --config <path>", "configuration file", "./config.json");
 program.parse(process.argv);
 
-const {
-    debug = true,
-    dhis: {
-        baseUrl = "http://play.dhis2.org/demo",
-        username = "admin",
-        password = "district",
-    } = {},
-    repo: {
-        url: gitRepo = undefined,
-        branch: gitBranch = "master",
-        statusFileName = ".meta-repo.json",
-        ssh: { publicKey = undefined, privateKey = undefined, passphrase = "" } = {},
-        commiter: {
-            name: commiterName = "DHIS Meta Repo",
-            email: commiterEmail = "meta-repo@dhis",
-        } = {},
-        temporal = true,
-        hideAuthor = false,
-        pushToRemote = true,
-    } = {},
-    logger: { level: loggerLevel = "trace", fileName: loggerFileName = "debug.log" } = {},
-} = fs.readJSONSync(program.config, { throws: false }) ?? {};
+// Read configuration properties
+const config = buildConfig(program.config);
 
+// Set up logger instance
+const { loggerLevel, loggerFileName } = config;
 configureLogger({ loggerLevel, loggerFileName });
-const logger = log4js.getLogger();
 
+// Set up connection with DHIS2
+const { baseUrl, dhisUsername, dhisPassword } = config;
 const api = new D2ApiDefault({
     baseUrl,
-    auth: { username, password },
+    auth: { username: dhisUsername, password: dhisPassword },
 });
 
-const workingDir = tmp.dirSync({ keep: debug });
-logger.debug(`Working dir: ${workingDir.name}`);
-
-const statusFile = workingDir.name + path.sep + statusFileName;
-
+// Main script method
 const start = async () => {
-    /**
-     * Limitation: Repo and branch must exist
-     */
-    const repo = await Clone.clone(gitRepo, workingDir.name, {
-        fetchOpts: buildFetchOpts({ publicKey, privateKey, passphrase }),
-        checkoutBranch: gitBranch,
-    });
+    // Create temporal folder to store repository
+    const { name: workingDirPath, removeCallback: removeTemporalFolder } = createWorkingDir(config);
 
-    fs.ensureFileSync(statusFile);
-    const { lastUpdated: lastUpdatedFilter } = fs.readJSONSync(statusFile, { throws: false }) ?? {};
+    // Clone repo and branch to local temporal folder
+    const repo = await cloneRepo(workingDirPath, config);
 
-    const items: MetadataChange[] = [];
-    const models = _.keys(api.models) as (keyof D2ModelSchemas)[];
-    for (const model of models) {
-        try {
-            logger.debug(`Fetching model ${model}`);
-            let page = 1;
-            let pageCount = 1;
-
-            while (page <= pageCount) {
-                const { objects, pager } = (await fetchApi(api, model, {
-                    page,
-                    lastUpdatedFilter,
-                })) as {
-                    objects: any[];
-                    pager: Pager;
-                };
-                page = pager.page + 1;
-                pageCount = pager.pageCount;
-
-                writeMetadataToFile(model, objects, workingDir.name);
-                items.push(
-                    ...objects.map(({ id, name, lastUpdated, lastUpdatedBy }) => ({
-                        model,
-                        id,
-                        name,
-                        lastUpdated,
-                        lastUpdatedBy,
-                    }))
-                );
-            }
-        } catch (e) {
-            logger.error(`Ignoring model ${model}`);
-        }
-    }
-
+    // Read and update lastUpdated filter (defaults to all metadata if not set)
+    const statusFile = getStatusFile(workingDirPath, config);
+    const { lastUpdated } = statusFile;
     fs.writeJSON(statusFile, { lastUpdated: moment().toISOString() }, { spaces: 4 });
-    await commitChanges(repo, items, { commiterName, commiterEmail, hideAuthor });
 
-    if (pushToRemote) {
-        const remote = await repo.getRemote("origin");
-        await remote.push(
-            ["HEAD:refs/heads/" + gitBranch],
-            buildFetchOpts({ publicKey, privateKey, passphrase })
-        );
-        logger.info("[GIT] Pushed to " + gitBranch);
-    }
+    // For each model process all metadata
+    const models = _.keys(api.models) as (keyof D2ModelSchemas)[];
+    const items = await processMetadata({ api, models, lastUpdated, workingDirPath });
 
-    if (temporal) {
-        workingDir.removeCallback();
-        logger.info("Deleted temporal dir");
-    }
+    // Commit changes, push to remote and delete temporal folder
+    await commitChanges(repo, items, config);
+    const { pushToRemote, temporal } = config;
+    if (pushToRemote) await pushToOrigin(repo, config);
+    if (temporal) removeTemporalFolder();
 };
 
 start()
-    .then(() => logger.debug("Finished, see results at " + workingDir.name))
-    .catch(e => logger.fatal(e));
+    .then(() => log4js.getLogger("Main").debug("Execution finished"))
+    .catch(e => log4js.getLogger("Main").fatal(e));
