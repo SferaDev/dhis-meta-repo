@@ -25,15 +25,20 @@ export const commitChanges = async (
     items: MetadataChange[],
     { commiterName, commiterEmail, hideAuthor }: Config
 ) => {
-    const groups = _.groupBy(items, ({ lastUpdated, lastUpdatedBy }) => {
-        const dayOfYear = moment(lastUpdated).format("YYYY-MM-DD");
-        const {
-            id = "unknown",
-            userCredentials: { username = "unknown" } = {},
-            name = "Unknown user",
-        } = lastUpdatedBy ?? {};
-        return [dayOfYear, id, username, name].join("_");
-    });
+    const groups = _(items)
+        .sortBy(({ lastUpdated }) => {
+            return moment(lastUpdated).format("YYYYMMDD");
+        })
+        .groupBy(({ lastUpdated, lastUpdatedBy }) => {
+            const dayOfYear = moment(lastUpdated).format("YYYY-MM-DD");
+            const {
+                id = "unknown",
+                userCredentials: { username = "unknown" } = {},
+                name = "Unknown user",
+            } = lastUpdatedBy ?? {};
+            return [dayOfYear, id, username, name].join("_");
+        })
+        .value();
 
     for (const group in groups) {
         const [authorDate, authorId, authorUsername, authorName] = group.split("_");
@@ -100,7 +105,7 @@ export const cloneRepo = async (workingDirPath: string, config: Config) => {
         await localRepo.getBranch(gitBranch);
     } catch (e) {
         getLogger("Git").info(`Branch ${gitBranch} did not exist on remote, creating...`);
-        createEmptyBranch(localRepo, workingDirPath, config);
+        await createEmptyBranch(localRepo, workingDirPath, config);
     }
 
     await localRepo.checkoutBranch(gitBranch);
