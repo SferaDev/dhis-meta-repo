@@ -1,7 +1,8 @@
-import { D2Api, D2ModelSchemas, Pager } from "d2-api";
+import { D2Api, Pager, Model, D2ModelSchemas } from "d2-api";
+import _ from "lodash";
 import moment from "moment";
-import { MetadataChange } from "../types";
-import { writeMetadataToFile } from "./files";
+import { Config, MetadataChange } from "../types";
+import { getStatusFile, writeMetadataToFile } from "./files";
 import { getLogger } from "./logger";
 import { timeout } from "./misc";
 
@@ -19,14 +20,27 @@ export const fetchApi = async (
     api: D2Api,
     model: string,
     query: { page?: number; pageSize?: number; lastUpdated?: string },
+    config: Config,
     retry = 1
 ): Promise<{ objects: any[]; pager?: Pager }> => {
     const { page = 1, pageSize = 10000, lastUpdated } = query;
-    if (model === "organisationUnits") await timeout(2000);
+    const { metadataSpecialModels } = config;
 
     try {
-        //@ts-ignore
-        const response = await api.models[model]
+        if (metadataSpecialModels?.includes(model)) await timeout(2000);
+
+        const modelCollection = api.models as {
+            [key: string]: Model<keyof D2ModelSchemas> | undefined;
+        };
+
+        const apiModel = modelCollection[model];
+
+        if (apiModel === undefined) {
+            getLogger("Metadata").error(`You provided model ${model}, but it does not exist`);
+            return { objects: [] };
+        }
+
+        const response = await apiModel
             .get({
                 fields,
                 paging: true,
@@ -50,43 +64,49 @@ export const fetchApi = async (
             const backoff = retry * 2000;
             getLogger("Metadata").error(`Failed ${model} page ${page}, retrying in ${retry}s...`);
             await timeout(backoff);
-            return fetchApi(api, model, query, retry + 1);
+            return fetchApi(api, model, query, config, retry + 1);
         } else {
             throw new Error(`Error fetching model ${model}`);
         }
     }
 };
 
-export const processMetadata = async ({
-    api,
-    models,
-    lastUpdated,
-    workingDirPath,
-}: {
-    api: D2Api;
-    models: (keyof D2ModelSchemas)[];
-    lastUpdated: string;
-    workingDirPath: string;
-}) => {
-    const items: MetadataChange[] = [];
+export const buildModels = (
+    api: D2Api,
+    { metadataExcludedModels = [], metadataIncludedModels }: Config
+) => {
+    const collection = metadataIncludedModels ?? _.keys(api.models);
+    return _.difference(collection, metadataExcludedModels);
+};
 
-    for (const model of models) {
+export const processMetadata = async (api: D2Api, workingDirPath: string, config: Config) => {
+    const items: MetadataChange[] = [];
+    const statusFile = getStatusFile(workingDirPath, config);
+    const { lastUpdated } = statusFile;
+    const { metadataSpecialModels } = config;
+
+    for (const model of buildModels(api, config)) {
         let page = 1;
         let pageCount = 1;
 
         while (page <= pageCount) {
             const pageMessage = pageCount > 1 ? ` (${page} of ${pageCount})` : "";
             getLogger("Metadata").debug(`Fetching model ${model}` + pageMessage);
-            const { objects, pager = { page, pageCount } } = await fetchApi(api, model, {
-                page,
-                lastUpdated,
-            });
+            const { objects, pager = { page, pageCount } } = await fetchApi(
+                api,
+                model,
+                {
+                    page,
+                    lastUpdated,
+                },
+                config
+            );
             page = pager.page + 1;
             pageCount = pager.pageCount;
 
             writeMetadataToFile(model, objects, workingDirPath);
 
-            if (model !== "organisationUnits")
+            if (!metadataSpecialModels?.includes(model))
                 items.push(
                     ...objects.map(({ id, name, level, lastUpdated, lastUpdatedBy }) => ({
                         model,

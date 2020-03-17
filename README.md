@@ -20,16 +20,43 @@ $ yarn install
 $ yarn start
 ```
 
-## Build executable
-
-```
-$ yarn dist
-```
-
-This will produce a bundled executable ```dhis-meta-repo.js``` file that can be executed with ```node```.
-
 ## Configuration file
 
 File `config.json` must be provided, the path of the configuration file can be changed with argument ``-c`` or ``--config``.
 
 All the properties have a default value in case the configuration file is not complete.
+
+```
+{
+    "debug": true,
+    "dhis": {
+        "baseUrl": "http://play.dhis2.org/demo",
+        "username": "admin",
+        "password": "district"
+    },
+    "repo": {
+        "url": "git@github.com:<user>/<repo>.git",
+        "branch": "branch",
+        "ssh": {
+            "publicKey": "/home/<user>/.ssh/id_rsa.pub",
+            "privateKey": "/home/<user>/.ssh/id_rsa",
+            "passphrase": ""
+        },
+        "commiter": {
+            "name": "DHIS Meta Repo",
+            "email": "meta-repo@dhis"
+        },
+        "temporal": true,
+        "hideAuthor": false,
+        "pushToRemote": true
+    },
+    "logger": {
+        "level": "trace",
+        "fileName": "debug.log"
+    },
+    "metadata": {
+        "exclusions": ["externalFileResources", "eventFilters"],
+        "special": ["organisationUnits"]
+    }
+}
+```

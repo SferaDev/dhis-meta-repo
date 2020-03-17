@@ -25,5 +25,8 @@ export const buildConfig = (configFilePath: string): Config => {
         pushToRemote: get("repo.pushToRemote", true),
         loggerLevel: get("logger.level", "debug"),
         loggerFileName: get("logger.fileName", "debug.log"),
+        metadataExcludedModels: get("metadata.exclusions", []),
+        metadataIncludedModels: get("metadata.inclusions", undefined),
+        metadataSpecialModels: get("metadata.special", ["organisationUnits"]),
     };
 };

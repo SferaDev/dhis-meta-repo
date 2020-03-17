@@ -1,4 +1,3 @@
-import { D2ModelSchemas } from "d2-api";
 import fs from "fs-extra";
 import _ from "lodash";
 import moment from "moment";
@@ -14,11 +13,7 @@ export const buildFileName = (model: string, { id, name, level }: any) => {
     return _.compact([model, orgUnitLevel, fileName]).join(path.sep);
 };
 
-export const writeMetadataToFile = async (
-    model: keyof D2ModelSchemas,
-    objects: any[],
-    workingDir: string
-) => {
+export const writeMetadataToFile = async (model: string, objects: any[], workingDir: string) => {
     for (const object of objects) {
         const file = buildFileName(model, object);
         fs.outputJSON(workingDir + path.sep + file, object, { spaces: 4 });

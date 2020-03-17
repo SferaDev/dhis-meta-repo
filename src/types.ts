@@ -31,4 +31,7 @@ export interface Config {
     pushToRemote: boolean;
     loggerLevel: "trace" | "debug" | "info" | "error" | "fatal";
     loggerFileName: string;
+    metadataExcludedModels?: string[];
+    metadataIncludedModels?: string[];
+    metadataSpecialModels?: string[];
 }
