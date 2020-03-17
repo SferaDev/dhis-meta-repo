@@ -26,9 +26,9 @@ export const commitChanges = async (
     const groups = _.groupBy(items, ({ lastUpdated, lastUpdatedBy }) => {
         const dayOfYear = moment(lastUpdated).format("YYYY-MM-DD");
         const {
-            id = "deleted",
+            id = "unknown",
             userCredentials: { username = "unknown" } = {},
-            name = "Deleted user",
+            name = "Unknown user",
         } = lastUpdatedBy ?? {};
         return [dayOfYear, id, username, name].join("_");
     });
@@ -46,12 +46,13 @@ export const commitChanges = async (
             date.utcOffset()
         );
         const commiter = Signature.now(commiterName, commiterEmail);
-        await repo.createCommitOnHead(
+        const oid = await repo.createCommitOnHead(
             filesToAdd,
             hideAuthor ? commiter : author,
             commiter,
             `Metadata changes on ${date.utc()} by ${authorName}`
         );
+        getLogger("Git").trace(`Commit ${oid} (${filesToAdd.length} files) by ${authorName}`);
     }
 
     const gitIndex = await repo.refreshIndex();
@@ -65,6 +66,7 @@ export const commitChanges = async (
     await repo.createCommit("HEAD", commiter, commiter, "Update remote DHIS meta repo", oid, [
         parent,
     ]);
+    getLogger("Git").trace(`Created default commit with with hash ${oid}`);
 };
 
 export const cloneRepo = async (
@@ -72,6 +74,7 @@ export const cloneRepo = async (
     { gitRepo, publicKey, privateKey, passphrase, gitBranch }: Config
 ) => {
     if (!gitRepo) throw new Error("You need to specify a remote git repository");
+    getLogger("Git").info(`Cloning remote repository ${gitRepo} with branch ${gitBranch}`);
 
     return Clone.clone(gitRepo, workingDirPath, {
         fetchOpts: buildFetchOpts({ publicKey, privateKey, passphrase }),
@@ -83,10 +86,11 @@ export const pushToOrigin = async (
     repo: Repository,
     { gitBranch, publicKey, privateKey, passphrase }: Config
 ) => {
+    getLogger("Git").info(`Pushing to remote repository ${gitBranch}`);
     const remote = await repo.getRemote("origin");
     await remote.push(
         ["HEAD:refs/heads/" + gitBranch],
         buildFetchOpts({ publicKey, privateKey, passphrase })
     );
-    getLogger("Git").info("[GIT] Pushed to " + gitBranch);
+    getLogger("Git").info(`Pushed to remote repository ${gitBranch}`);
 };
