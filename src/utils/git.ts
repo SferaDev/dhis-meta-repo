@@ -1,6 +1,8 @@
+import fs from "fs-extra";
 import _ from "lodash";
 import moment from "moment";
-import { Clone, Cred, Reference, Repository, Signature } from "nodegit";
+import { Cred, Reference, Remote, Repository, Signature } from "nodegit";
+import path from "path";
 import { Config, MetadataChange } from "../types";
 import { buildFileName } from "./files";
 import { getLogger } from "./logger";
@@ -69,17 +71,40 @@ export const commitChanges = async (
     getLogger("Git").trace(`Created default commit with with hash ${oid}`);
 };
 
-export const cloneRepo = async (
+export const createEmptyBranch = async (
+    repo: Repository,
     workingDirPath: string,
-    { gitRepo, publicKey, privateKey, passphrase, gitBranch }: Config
+    { commiterName, commiterEmail, gitBranch }: Config
 ) => {
+    fs.writeFileSync(workingDirPath + path.sep + "README.md", "## DHIS2 Metadata Repository");
+    const signature = Signature.now(commiterName, commiterEmail);
+    const headCommit = await repo.createCommitOnHead(
+        ["README.md"],
+        signature,
+        signature,
+        "Initial commit"
+    );
+    await repo.createBranch(gitBranch, headCommit, true);
+};
+
+export const cloneRepo = async (workingDirPath: string, config: Config) => {
+    const { gitRepo, publicKey, privateKey, passphrase, gitBranch } = config;
     if (!gitRepo) throw new Error("You need to specify a remote git repository");
     getLogger("Git").info(`Cloning remote repository ${gitRepo} with branch ${gitBranch}`);
 
-    return Clone.clone(gitRepo, workingDirPath, {
-        fetchOpts: buildFetchOpts({ publicKey, privateKey, passphrase }),
-        checkoutBranch: gitBranch,
-    });
+    const localRepo = await Repository.init(workingDirPath, 0);
+    Remote.create(localRepo, "origin", gitRepo);
+    await localRepo.fetch("origin", buildFetchOpts({ publicKey, privateKey, passphrase }));
+
+    try {
+        await localRepo.getBranch(gitBranch);
+    } catch (e) {
+        getLogger("Git").info(`Branch ${gitBranch} did not exist on remote, creating...`);
+        createEmptyBranch(localRepo, workingDirPath, config);
+    }
+
+    await localRepo.checkoutBranch(gitBranch);
+    return localRepo;
 };
 
 export const pushToOrigin = async (
