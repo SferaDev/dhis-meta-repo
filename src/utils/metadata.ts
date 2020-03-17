@@ -83,7 +83,7 @@ export const processMetadata = async (api: D2Api, workingDirPath: string, config
     const items: MetadataChange[] = [];
     const statusFile = getStatusFile(workingDirPath, config);
     const { lastUpdated } = statusFile;
-    const { metadataSpecialModels } = config;
+    const { metadataSpecialModels, ignoreHistory } = config;
 
     for (const model of buildModels(api, config)) {
         let page = 1;
@@ -106,7 +106,7 @@ export const processMetadata = async (api: D2Api, workingDirPath: string, config
 
             writeMetadataToFile(model, objects, workingDirPath);
 
-            if (!metadataSpecialModels?.includes(model))
+            if (!ignoreHistory && !metadataSpecialModels?.includes(model))
                 items.push(
                     ...objects.map(({ id, name, level, lastUpdated, lastUpdatedBy }) => ({
                         model,

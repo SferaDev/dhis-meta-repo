@@ -22,6 +22,7 @@ export const buildConfig = (configFilePath: string): Config => {
         commiterEmail: get("repo.commiter.email", "meta-repo@dhis"),
         temporal: get("repo.temporal", true),
         hideAuthor: get("repo.hideAuthor", false),
+        ignoreHistory: get("repo.ignoreHistory", false),
         pushToRemote: get("repo.pushToRemote", true),
         loggerLevel: get("logger.level", "debug"),
         loggerFileName: get("logger.fileName", "debug.log"),

@@ -28,6 +28,7 @@ export interface Config {
     commiterEmail: string;
     temporal: boolean;
     hideAuthor: boolean;
+    ignoreHistory: boolean;
     pushToRemote: boolean;
     loggerLevel: "trace" | "debug" | "info" | "error" | "fatal";
     loggerFileName: string;
