@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import _ from "lodash";
 import { initializeApi } from "../api/common";
 import { createWorkingDir, getStatusFile } from "../io/files";
+import { cloneRepo } from "../io/git";
 import { Config, UserConfig } from "../types";
 
 const buildExternalConfig = (configFilePath: string): UserConfig => {
@@ -34,25 +35,18 @@ const buildExternalConfig = (configFilePath: string): UserConfig => {
     };
 };
 
-export const buildConfig = (configFilePath: string): Config => {
+export const buildConfig = async (configFilePath: string): Promise<Config> => {
     const userConfig = buildExternalConfig(configFilePath);
-
-    // Set up connection with DHIS2
+    const workingDir = createWorkingDir(userConfig);
+    const statusFile = getStatusFile(workingDir, userConfig);
     const api = initializeApi(userConfig);
-
-    // Create temporal folder to store repository
-    const { name: workingDirPath, removeCallback: removeTemporalFolder } = createWorkingDir(
-        userConfig
-    );
-
-    // Get lastUpdated date
-    const { lastUpdated } = getStatusFile(workingDirPath, userConfig);
+    const repo = await cloneRepo(workingDir, userConfig);
 
     return {
         ...userConfig,
+        ...statusFile,
+        ...workingDir,
         api,
-        workingDirPath,
-        removeTemporalFolder,
-        lastUpdated,
+        repo,
     };
 };

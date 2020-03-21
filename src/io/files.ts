@@ -4,7 +4,7 @@ import moment from "moment";
 import path from "path";
 import tmp from "tmp";
 import { getLogger } from "../config/logger";
-import { Config, UserConfig } from "../types";
+import { Config, StatusFile, UserConfig, WorkingDir } from "../types";
 
 export const buildFileName = (model: string, { id, name, level }: any) => {
     const cleanName = name ? name.split(path.sep).join("-") : undefined;
@@ -20,18 +20,34 @@ export const writeMetadataToFile = async (model: string, objects: any[], working
     }
 };
 
-export const createWorkingDir = ({ debug }: UserConfig) => {
-    const workingDir = tmp.dirSync({ keep: debug });
-    getLogger("Files").debug(`Working dir: ${workingDir.name}`);
-    return workingDir;
+/**
+ * @param UserConfig: Configuration read from a JSON file and extended with default values
+ * @returns Temporal folder path and remove callback
+ */
+export const createWorkingDir = ({ debug }: UserConfig): WorkingDir => {
+    const { name, removeCallback } = tmp.dirSync({ keep: debug });
+    getLogger("Files").debug(`Working dir: ${name}`);
+    return { workingDirPath: name, removeTemporalFolder: removeCallback };
 };
 
-export const getStatusFile = (currentDir: string, { statusFileName }: UserConfig) => {
-    const statusFilePath = currentDir + path.sep + statusFileName;
+/**
+ * @param WorkingDir: Temporal working directory
+ * @param UserConfig: Configuration read from a JSON file and extended with default values
+ * @returns Contents of status file
+ */
+export const getStatusFile = (
+    { workingDirPath }: WorkingDir,
+    { statusFileName }: UserConfig
+): StatusFile => {
+    const statusFilePath = workingDirPath + path.sep + statusFileName;
     fs.ensureFileSync(statusFilePath);
     return fs.readJSONSync(statusFilePath, { throws: false }) ?? {};
 };
 
+/**
+ * @param UserConfig: Configuration read from a JSON file and extended with default values
+ * @returns Nothing
+ */
 export const updateLastUpdated = ({ workingDirPath, statusFileName }: Config) => {
     const statusFilePath = workingDirPath + path.sep + statusFileName;
     fs.ensureFileSync(statusFilePath);

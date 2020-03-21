@@ -4,7 +4,7 @@ import moment from "moment";
 import { Cred, Reference, Remote, Repository, Signature } from "nodegit";
 import path from "path";
 import { getLogger } from "../config/logger";
-import { Config, MetadataChange } from "../types";
+import { Config, MetadataChange, UserConfig, WorkingDir } from "../types";
 import { buildFileName } from "./files";
 
 export function buildFetchOpts({ publicKey, privateKey, passphrase }: any) {
@@ -83,7 +83,8 @@ export const commitPendingChanges = async (
 
 export const createEmptyBranch = async (
     repo: Repository,
-    { workingDirPath, commiterName, commiterEmail, gitBranch }: Config
+    { workingDirPath }: WorkingDir,
+    { commiterName, commiterEmail, gitBranch }: UserConfig
 ) => {
     fs.writeFileSync(workingDirPath + path.sep + "README.md", "## DHIS2 Metadata Repository");
     const signature = Signature.now(commiterName, commiterEmail);
@@ -96,8 +97,9 @@ export const createEmptyBranch = async (
     await repo.createBranch(gitBranch, headCommit, true);
 };
 
-export const cloneRepo = async (config: Config) => {
-    const { workingDirPath, gitRepo, publicKey, privateKey, passphrase, gitBranch } = config;
+export const cloneRepo = async (workingDir: WorkingDir, userConfig: UserConfig) => {
+    const { workingDirPath } = workingDir;
+    const { gitRepo, publicKey, privateKey, passphrase, gitBranch } = userConfig;
     if (!gitRepo) throw new Error("You need to specify a remote git repository");
     getLogger("Git").info(`Cloning remote repository ${gitRepo} with branch ${gitBranch}`);
 
@@ -109,7 +111,7 @@ export const cloneRepo = async (config: Config) => {
         await localRepo.getBranch(gitBranch);
     } catch (e) {
         getLogger("Git").info(`Branch ${gitBranch} did not exist on remote, creating...`);
-        await createEmptyBranch(localRepo, config);
+        await createEmptyBranch(localRepo, workingDir, userConfig);
     }
 
     await localRepo.checkoutBranch(gitBranch);

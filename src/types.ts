@@ -1,4 +1,5 @@
 import { D2Api } from "d2-api";
+import { Repository } from "nodegit";
 
 export interface MetadataChange {
     model: string;
@@ -39,9 +40,18 @@ export interface UserConfig {
     metadataSpecialModels?: string[];
 }
 
-export interface Config extends UserConfig {
-    api: D2Api;
-    workingDirPath: string;
-    removeTemporalFolder: () => void;
+export interface StatusFile {
     lastUpdated?: string;
 }
+
+export interface WorkingDir {
+    workingDirPath: string;
+    removeTemporalFolder: () => void;
+}
+
+export interface AppState {
+    api: D2Api;
+    repo: Repository;
+}
+
+export type Config = UserConfig & StatusFile & WorkingDir & AppState;
