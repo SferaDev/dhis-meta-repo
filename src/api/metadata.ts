@@ -1,9 +1,9 @@
-import { D2ModelSchemas, Model, Pager } from "d2-api";
+import { Pager } from "d2-api";
 import _ from "lodash";
 import moment from "moment";
 import { getLogger } from "../config/logger";
 import { writeMetadataToFile } from "../io/files";
-import { Config, MetadataChange } from "../types";
+import { Config, MetadataChange, ModelCollection, ModelName } from "../types";
 import { timeout } from "../utils";
 
 export const fields = {
@@ -17,7 +17,7 @@ export const fields = {
 };
 
 export const fetchApi = async (
-    model: string,
+    model: ModelName,
     query: { page?: number; pageSize?: number; lastUpdated?: string },
     config: Config,
     retry = 1
@@ -28,10 +28,7 @@ export const fetchApi = async (
     try {
         if (metadataSpecialModels?.includes(model)) await timeout(2000);
 
-        const modelCollection = api.models as {
-            [key: string]: Model<keyof D2ModelSchemas> | undefined;
-        };
-
+        const modelCollection = api.models as ModelCollection;
         const apiModel = modelCollection[model];
 
         if (apiModel === undefined) {
@@ -74,13 +71,14 @@ export const buildModels = ({
     api,
     metadataExcludedModels = [],
     metadataIncludedModels,
-}: Config) => {
-    const collection = metadataIncludedModels ?? _.keys(api.models);
+}: Config): ModelName[] => {
+    const defaultModels = _.keys(api.models) as ModelName[];
+    const collection = metadataIncludedModels ?? defaultModels;
     return _.difference(collection, metadataExcludedModels);
 };
 
 export const processMetadata = async (config: Config) => {
-    const { metadataSpecialModels, ignoreHistory, lastUpdated, workingDirPath } = config;
+    const { metadataSpecialModels, ignoreHistory, lastUpdated } = config;
     const items: MetadataChange[] = [];
 
     for (const model of buildModels(config)) {
@@ -101,7 +99,7 @@ export const processMetadata = async (config: Config) => {
             page = pager.page + 1;
             pageCount = pager.pageCount;
 
-            writeMetadataToFile(model, objects, workingDirPath);
+            writeMetadataToFile(model, objects, config);
 
             if (!ignoreHistory && !metadataSpecialModels?.includes(model))
                 items.push(

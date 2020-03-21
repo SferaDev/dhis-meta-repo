@@ -1,8 +1,13 @@
-import { D2Api } from "d2-api";
+import { D2Api, D2ModelSchemas, Model } from "d2-api";
 import { Repository } from "nodegit";
 
+export type ModelName = keyof D2ModelSchemas;
+export interface ModelCollection {
+    [key: string]: Model<ModelName> | undefined;
+}
+
 export interface MetadataChange {
-    model: string;
+    model: ModelName;
     id: string;
     name: string;
     level: number;
@@ -35,9 +40,9 @@ export interface UserConfig {
     pushToRemote: boolean;
     loggerLevel: "trace" | "debug" | "info" | "error" | "fatal";
     loggerFileName: string;
-    metadataExcludedModels?: string[];
-    metadataIncludedModels?: string[];
-    metadataSpecialModels?: string[];
+    metadataExcludedModels?: ModelName[];
+    metadataIncludedModels?: ModelName[];
+    metadataSpecialModels?: ModelName[];
 }
 
 export interface StatusFile {

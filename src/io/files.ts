@@ -4,19 +4,35 @@ import moment from "moment";
 import path from "path";
 import tmp from "tmp";
 import { getLogger } from "../config/logger";
-import { Config, StatusFile, UserConfig, WorkingDir } from "../types";
+import { Config, ModelName, StatusFile, UserConfig, WorkingDir } from "../types";
 
-export const buildFileName = (model: string, { id, name, level }: any) => {
+/**
+ * @param ModelName: Model name of the objects to store
+ * @param any: Object parsed from model
+ * @returns File name
+ */
+export const buildFileName = (model: ModelName, { id, name, level }: any): string => {
     const cleanName = name ? name.split(path.sep).join("-") : undefined;
     const fileName = `${[id, cleanName].join("_")}.json`;
     const orgUnitLevel = level ? `level-${level}` : undefined;
     return _.compact([model, orgUnitLevel, fileName]).join(path.sep);
 };
 
-export const writeMetadataToFile = async (model: string, objects: any[], workingDir: string) => {
+/**
+ * @async
+ * @param ModelName: Model name of the objects to store
+ * @param Object[]: Array of objects parsed by the API
+ * @param Config: Application configuration
+ * @returns Nothing
+ */
+export const writeMetadataToFile = async (
+    model: ModelName,
+    objects: object[],
+    { workingDirPath }: Config
+) => {
     for (const object of objects) {
         const file = buildFileName(model, object);
-        fs.outputJSON(workingDir + path.sep + file, object, { spaces: 4 });
+        fs.outputJSON(workingDirPath + path.sep + file, object, { spaces: 4 });
     }
 };
 
@@ -45,7 +61,8 @@ export const getStatusFile = (
 };
 
 /**
- * @param UserConfig: Configuration read from a JSON file and extended with default values
+ * @description Stores the last updated date in the status file
+ * @param Config: Application configuration
  * @returns Nothing
  */
 export const updateLastUpdated = ({ workingDirPath, statusFileName }: Config) => {
