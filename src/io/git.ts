@@ -21,9 +21,8 @@ export function buildFetchOpts({ publicKey, privateKey, passphrase }: any) {
 }
 
 export const commitMetadataChanges = async (
-    repo: Repository,
     changes: MetadataChange[],
-    { commiterName, commiterEmail, hideAuthor }: Config
+    { repo, commiterName, commiterEmail, hideAuthor }: Config
 ) => {
     const groups = _(changes)
         .sortBy(({ lastUpdated }) => {
@@ -64,8 +63,7 @@ export const commitMetadataChanges = async (
 };
 
 export const commitPendingChanges = async (
-    repo: Repository,
-    { commiterName, commiterEmail }: Config
+    { repo, commiterName, commiterEmail }: Config
 ) => {
     const gitIndex = await repo.refreshIndex();
     await gitIndex.addAll();
@@ -119,8 +117,7 @@ export const cloneRepo = async (workingDir: WorkingDir, userConfig: UserConfig) 
 };
 
 export const pushToOrigin = async (
-    repo: Repository,
-    { gitBranch, publicKey, privateKey, passphrase }: Config
+    { repo, gitBranch, publicKey, privateKey, passphrase }: Config
 ) => {
     getLogger("Git").info(`Pushing to remote repository ${gitBranch}`);
     const remote = await repo.getRemote("origin");
