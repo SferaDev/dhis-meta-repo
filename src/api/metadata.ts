@@ -4,7 +4,7 @@ import moment from "moment";
 import { getLogger } from "../config/logger";
 import { writeMetadataToFile } from "../io/files";
 import { Config, MetadataChange } from "../types";
-import { timeout } from "../utils/misc";
+import { timeout } from "../utils";
 
 export const fields = {
     $owner: true,

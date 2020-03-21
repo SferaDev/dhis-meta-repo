@@ -1,30 +1,22 @@
 import { program } from "commander";
-import { processMetadata } from "./api/metadata";
 import { buildConfig } from "./config/builder";
 import { configureLogger, getLogger } from "./config/logger";
-import { updateLastUpdated } from "./io/files";
-import { commitMetadataChanges, commitPendingChanges, pushToOrigin } from "./io/git";
+import { main } from "./tasks";
 
 // Initialize CLI program
 program.option("-c, --config <path>", "configuration file", "./config.json");
 program.parse(process.argv);
 
 // Main script method
-const start = async () => {
+const executor = async () => {
     // Read configuration properties and start-up logger
     const config = await buildConfig(program.config);
-    const { repo, temporal, pushToRemote, removeTemporalFolder } = config;
+    const { temporal, removeTemporalFolder } = config;
     configureLogger(config);
 
     try {
-        // Fetch all metadata from models and build a list of changed items
-        const metadataChanges = await processMetadata(config);
-        await commitMetadataChanges(repo, metadataChanges, config);
-
-        // Commit changes pending changes and push to remote
-        updateLastUpdated(config);
-        await commitPendingChanges(repo, config);
-        if (pushToRemote) await pushToOrigin(repo, config);
+        // Execute main task
+        await main(config);
 
         // Normal clean-up
         if (temporal) removeTemporalFolder();
@@ -36,4 +28,4 @@ const start = async () => {
     }
 };
 
-start();
+executor();

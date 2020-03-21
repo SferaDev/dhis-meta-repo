@@ -1,6 +1,6 @@
 import fs from "fs-extra";
 import _ from "lodash";
-import { initializeApi } from "../api/common";
+import { initializeApi } from "../api";
 import { createWorkingDir, getStatusFile } from "../io/files";
 import { cloneRepo } from "../io/git";
 import { Config, UserConfig } from "../types";
