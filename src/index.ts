@@ -2,7 +2,7 @@ import { program } from "commander";
 import { D2ApiDefault } from "d2-api";
 import { buildConfig } from "./utils/config";
 import { createWorkingDir, updateLastUpdated } from "./utils/files";
-import { cloneRepo, commitChanges, pushToOrigin } from "./utils/git";
+import { cloneRepo, commitMetadataChanges, commitPendingChanges, pushToOrigin } from "./utils/git";
 import { configureLogger, getLogger } from "./utils/logger";
 import { processMetadata } from "./utils/metadata";
 
@@ -30,11 +30,12 @@ const start = async () => {
     const repo = await cloneRepo(workingDirPath, config);
 
     // Fetch all metadata from models and build a list of changed items
-    const items = await processMetadata(api, workingDirPath, config);
+    const metadataChanges = await processMetadata(api, workingDirPath, config);
+    await commitMetadataChanges(repo, metadataChanges, config);
 
-    // Commit changes, push to remote and delete temporal folder
+    // Commit changes pending changes and push to remote
     updateLastUpdated(workingDirPath, config);
-    await commitChanges(repo, items, config);
+    await commitPendingChanges(repo, config);
     if (pushToRemote) await pushToOrigin(repo, config);
 };
 

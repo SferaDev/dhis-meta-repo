@@ -20,12 +20,12 @@ export function buildFetchOpts({ publicKey, privateKey, passphrase }: any) {
     };
 }
 
-export const commitChanges = async (
+export const commitMetadataChanges = async (
     repo: Repository,
-    items: MetadataChange[],
+    changes: MetadataChange[],
     { commiterName, commiterEmail, hideAuthor }: Config
 ) => {
-    const groups = _(items)
+    const groups = _(changes)
         .sortBy(({ lastUpdated }) => {
             return moment(lastUpdated).format("YYYYMMDD");
         })
@@ -61,14 +61,19 @@ export const commitChanges = async (
         );
         getLogger("Git").trace(`Commit ${oid} (${filesToAdd.length} files) by ${authorName}`);
     }
+};
 
+export const commitPendingChanges = async (
+    repo: Repository,
+    { commiterName, commiterEmail }: Config
+) => {
     const gitIndex = await repo.refreshIndex();
     await gitIndex.addAll();
     gitIndex.write();
     const oid = await gitIndex.writeTree();
     const head = await Reference.nameToId(repo, "HEAD");
     const parent = await repo.getCommit(head);
-    const commiter = Signature.now("DHIS Meta Repo", "sferadev@gmail.com");
+    const commiter = Signature.now(commiterName, commiterEmail);
 
     await repo.createCommit("HEAD", commiter, commiter, "Update remote DHIS meta repo", oid, [
         parent,
