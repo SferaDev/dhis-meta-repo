@@ -3,8 +3,8 @@ import _ from "lodash";
 import moment from "moment";
 import path from "path";
 import tmp from "tmp";
-import { Config } from "../types";
-import { getLogger } from "./logger";
+import { getLogger } from "../config/logger";
+import { Config, UserConfig } from "../types";
 
 export const buildFileName = (model: string, { id, name, level }: any) => {
     const cleanName = name ? name.split(path.sep).join("-") : undefined;
@@ -20,19 +20,19 @@ export const writeMetadataToFile = async (model: string, objects: any[], working
     }
 };
 
-export const createWorkingDir = ({ debug }: Config) => {
+export const createWorkingDir = ({ debug }: UserConfig) => {
     const workingDir = tmp.dirSync({ keep: debug });
     getLogger("Files").debug(`Working dir: ${workingDir.name}`);
     return workingDir;
 };
 
-export const getStatusFile = (workingDirPath: string, { statusFileName }: Config) => {
-    const statusFilePath = workingDirPath + path.sep + statusFileName;
+export const getStatusFile = (currentDir: string, { statusFileName }: UserConfig) => {
+    const statusFilePath = currentDir + path.sep + statusFileName;
     fs.ensureFileSync(statusFilePath);
     return fs.readJSONSync(statusFilePath, { throws: false }) ?? {};
 };
 
-export const updateLastUpdated = (workingDirPath: string, { statusFileName }: Config) => {
+export const updateLastUpdated = ({ workingDirPath, statusFileName }: Config) => {
     const statusFilePath = workingDirPath + path.sep + statusFileName;
     fs.ensureFileSync(statusFilePath);
     fs.writeJSON(statusFilePath, { lastUpdated: moment().toISOString() }, { spaces: 4 });

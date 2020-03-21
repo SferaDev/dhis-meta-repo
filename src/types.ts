@@ -1,3 +1,5 @@
+import { D2Api } from "d2-api";
+
 export interface MetadataChange {
     model: string;
     id: string;
@@ -13,7 +15,7 @@ export interface MetadataChange {
     };
 }
 
-export interface Config {
+export interface UserConfig {
     debug: boolean;
     baseUrl: string;
     dhisUsername: string;
@@ -35,4 +37,11 @@ export interface Config {
     metadataExcludedModels?: string[];
     metadataIncludedModels?: string[];
     metadataSpecialModels?: string[];
+}
+
+export interface Config extends UserConfig {
+    api: D2Api;
+    workingDirPath: string;
+    removeTemporalFolder: () => void;
+    lastUpdated?: string;
 }

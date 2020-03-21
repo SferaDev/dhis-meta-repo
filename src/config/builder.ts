@@ -1,8 +1,10 @@
 import fs from "fs-extra";
 import _ from "lodash";
-import { Config } from "../types";
+import { initializeApi } from "../api/common";
+import { createWorkingDir, getStatusFile } from "../io/files";
+import { Config, UserConfig } from "../types";
 
-export const buildConfig = (configFilePath: string): Config => {
+const buildExternalConfig = (configFilePath: string): UserConfig => {
     const configFileContents = fs.readJSONSync(configFilePath, { throws: false }) ?? {};
     const get = (path: string | string[], defaultValue?: any) =>
         _.get(configFileContents, path, defaultValue);
@@ -29,5 +31,28 @@ export const buildConfig = (configFilePath: string): Config => {
         metadataExcludedModels: get("metadata.exclusions", []),
         metadataIncludedModels: get("metadata.inclusions", undefined),
         metadataSpecialModels: get("metadata.special", ["organisationUnits"]),
+    };
+};
+
+export const buildConfig = (configFilePath: string): Config => {
+    const userConfig = buildExternalConfig(configFilePath);
+
+    // Set up connection with DHIS2
+    const api = initializeApi(userConfig);
+
+    // Create temporal folder to store repository
+    const { name: workingDirPath, removeCallback: removeTemporalFolder } = createWorkingDir(
+        userConfig
+    );
+
+    // Get lastUpdated date
+    const { lastUpdated } = getStatusFile(workingDirPath, userConfig);
+
+    return {
+        ...userConfig,
+        api,
+        workingDirPath,
+        removeTemporalFolder,
+        lastUpdated,
     };
 };
