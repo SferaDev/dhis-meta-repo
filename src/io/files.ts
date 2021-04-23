@@ -4,14 +4,14 @@ import moment from "moment";
 import path from "path";
 import tmp from "tmp";
 import { getLogger } from "../config/logger";
-import { Config, ModelName, StatusFile, UserConfig, WorkingDir } from "../types";
+import { Config, StatusFile, UserConfig, WorkingDir } from "../types";
 
 /**
  * @param ModelName: Model name of the objects to store
  * @param any: Object parsed from model
  * @returns File name
  */
-export const buildFileName = (model: ModelName, { id, name, level }: any): string => {
+export const buildFileName = (model: string, { id, name, level }: any): string => {
     const cleanName = name ? name.split(path.sep).join("-") : undefined;
     const fileName = `${[id, cleanName].join("_")}.json`;
     const orgUnitLevel = level ? `level-${level}` : undefined;
@@ -26,7 +26,7 @@ export const buildFileName = (model: ModelName, { id, name, level }: any): strin
  * @returns Nothing
  */
 export const writeMetadataToFile = async (
-    model: ModelName,
+    model: string,
     objects: object[],
     { workingDirPath }: Config
 ) => {

@@ -102,7 +102,7 @@ export const cloneRepo = async (workingDir: WorkingDir, userConfig: UserConfig) 
     getLogger("Git").info(`Cloning remote repository ${gitRepo} with branch ${gitBranch}`);
 
     const localRepo = await Repository.init(workingDirPath, 0);
-    Remote.create(localRepo, "origin", gitRepo);
+    await Remote.create(localRepo, "origin", gitRepo);
     await localRepo.fetch("origin", buildFetchOpts({ publicKey, privateKey, passphrase }));
 
     try {

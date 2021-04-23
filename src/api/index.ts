@@ -1,4 +1,4 @@
-import { D2Api, D2ApiDefault } from "d2-api";
+import { D2Api } from "@eyeseetea/d2-api/2.34";
 import { UserConfig } from "../types";
 
 /**
@@ -6,7 +6,7 @@ import { UserConfig } from "../types";
  * @returns d2-api instance with the provided user credentials
  */
 export const initializeApi = ({ baseUrl, dhisUsername, dhisPassword }: UserConfig): D2Api => {
-    return new D2ApiDefault({
+    return new D2Api({
         baseUrl,
         auth: { username: dhisUsername, password: dhisPassword },
     });

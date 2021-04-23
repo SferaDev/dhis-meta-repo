@@ -1,9 +1,11 @@
-import { Pager } from "d2-api";
+import { Model, Pager } from "@eyeseetea/d2-api/2.34";
+import { D2ApiDefinitionBase } from "@eyeseetea/d2-api/api/common";
+import { D2ModelSchemaBase } from "@eyeseetea/d2-api/api/inference";
 import _ from "lodash";
 import moment from "moment";
 import { getLogger } from "../config/logger";
 import { writeMetadataToFile } from "../io/files";
-import { Config, MetadataChange, ModelCollection, ModelName } from "../types";
+import { Config, MetadataChange } from "../types";
 import { timeout } from "../utils";
 
 export const fields = {
@@ -17,52 +19,48 @@ export const fields = {
 };
 
 export const fetchApi = async (
-    model: ModelName,
+    model: Model<D2ApiDefinitionBase, D2ModelSchemaBase>,
     query: { page?: number; pageSize?: number; lastUpdated?: string },
     config: Config,
     retry = 1
 ): Promise<{ objects: any[]; pager?: Pager }> => {
     const { page = 1, pageSize = 10000, lastUpdated } = query;
-    const { api, metadataSpecialModels } = config;
+    const { metadataSpecialModels } = config;
 
     try {
-        if (metadataSpecialModels?.includes(model)) await timeout(2000);
+        if (metadataSpecialModels?.includes(model.schema.collectionName)) await timeout(2000);
 
-        const modelCollection = api.models as ModelCollection;
-        const apiModel = modelCollection[model];
-
-        if (apiModel === undefined) {
+        if (model === undefined) {
             getLogger("Metadata").error(`You provided model ${model}, but it does not exist`);
             return { objects: [] };
         }
 
-        const response = await apiModel
+        const response = await model
             .get({
                 fields,
                 paging: true,
                 page,
                 pageSize,
                 filter: lastUpdated
-                    ? {
-                          lastUpdated: {
-                              gt: moment(lastUpdated).toISOString(),
-                          },
-                      }
+                    ? { lastUpdated: { gt: moment(lastUpdated).toISOString() } }
                     : undefined,
             })
             .getData();
         return response;
     } catch (e) {
-        if (e.response?.status === 404) {
+        if (e.response?.status === 401) {
+            getLogger("Metadata").error(`Invalid credentials`);
+            return { objects: [] };
+        } else if (e.response?.status === 404) {
             getLogger("Metadata").debug(`Ignoring model ${model}`);
             return { objects: [] };
         } else if (retry < 10) {
             const backoff = retry * 2000;
-            getLogger("Metadata").error(`Failed ${model} page ${page}, retrying in ${retry}s...`);
+            getLogger("Metadata").error(`Failed ${model} page ${page}, retrying ${retry}/10...`);
             await timeout(backoff);
             return fetchApi(model, query, config, retry + 1);
         } else {
-            throw new Error(`Error fetching model ${model}`);
+            return { objects: [] };
         }
     }
 };
@@ -71,10 +69,11 @@ export const buildModels = ({
     api,
     metadataExcludedModels = [],
     metadataIncludedModels,
-}: Config): ModelName[] => {
-    const defaultModels = _.keys(api.models) as ModelName[];
-    const collection = metadataIncludedModels ?? defaultModels;
-    return _.difference(collection, metadataExcludedModels);
+}: Config) => {
+    return _.values(api.models)
+        .filter(model => model.schema.metadata)
+        .filter(({ schema }) => metadataIncludedModels?.includes(schema.collectionName) ?? true)
+        .filter(({ schema }) => !metadataExcludedModels.includes(schema.collectionName));
 };
 
 export const processMetadata = async (config: Config) => {
@@ -87,7 +86,7 @@ export const processMetadata = async (config: Config) => {
 
         while (page <= pageCount) {
             const pageMessage = pageCount > 1 ? ` (${page} of ${pageCount})` : "";
-            getLogger("Metadata").debug(`Fetching model ${model}` + pageMessage);
+            getLogger("Metadata").debug(`Fetching model ${model.schema.collectionName}` + pageMessage);
             const { objects, pager = { page, pageCount } } = await fetchApi(
                 model,
                 {
@@ -99,12 +98,12 @@ export const processMetadata = async (config: Config) => {
             page = pager.page + 1;
             pageCount = pager.pageCount;
 
-            writeMetadataToFile(model, objects, config);
+            writeMetadataToFile(model.schema.collectionName, objects, config);
 
-            if (!ignoreHistory && !metadataSpecialModels?.includes(model))
+            if (!ignoreHistory && !metadataSpecialModels?.includes(model.schema.collectionName))
                 items.push(
                     ...objects.map(({ id, name, level, lastUpdated, lastUpdatedBy }) => ({
-                        model,
+                        model: model.schema.collectionName,
                         id,
                         name,
                         level,

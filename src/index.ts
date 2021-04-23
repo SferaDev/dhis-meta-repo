@@ -10,7 +10,7 @@ program.parse(process.argv);
 // Main script method
 const executor = async () => {
     // Read configuration properties and start-up logger
-    const config = await buildConfig(program.config);
+    const config = await buildConfig(program.opts().config);
     const { temporal, removeTemporalFolder } = config;
     configureLogger(config);
 
