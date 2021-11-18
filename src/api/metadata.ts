@@ -47,7 +47,7 @@ export const fetchApi = async (
             })
             .getData();
         return response;
-    } catch (e) {
+    } catch (e: any) {
         if (e.response?.status === 401) {
             getLogger("Metadata").error(`Invalid credentials`);
             return { objects: [] };

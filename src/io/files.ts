@@ -40,7 +40,11 @@ export const writeMetadataToFile = async (
  * @param UserConfig: Configuration read from a JSON file and extended with default values
  * @returns Temporal folder path and remove callback
  */
-export const createWorkingDir = ({ debug }: UserConfig): WorkingDir => {
+export const createWorkingDir = ({ debug, externalWorkingDir }: UserConfig): WorkingDir => {
+    if (externalWorkingDir) {
+        return { workingDirPath: externalWorkingDir, removeTemporalFolder: () => {} };
+    }
+    
     const { name, removeCallback } = tmp.dirSync({ keep: debug });
     getLogger("Files").debug(`Working dir: ${name}`);
     return { workingDirPath: name, removeTemporalFolder: removeCallback };

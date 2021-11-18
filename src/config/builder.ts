@@ -11,6 +11,7 @@ const buildExternalConfig = (configFilePath: string): UserConfig => {
         _.get(configFileContents, path, defaultValue);
 
     return {
+        externalWorkingDir: get("workingDirPath"),
         debug: get("debug", true),
         baseUrl: get("dhis.baseUrl", "http://play.dhis2.org/demo"),
         dhisUsername: get("dhis.username", "admin"),

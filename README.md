@@ -57,6 +57,7 @@ All the properties have a default value in case the configuration file is not co
     "metadata": {
         "exclusions": ["externalFileResources", "eventFilters"],
         "special": ["organisationUnits"]
-    }
+    },
+    "workingDirPath": "./" // optional
 }
 ```

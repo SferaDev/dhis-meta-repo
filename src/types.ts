@@ -17,6 +17,7 @@ export interface MetadataChange {
 }
 
 export interface UserConfig {
+    externalWorkingDir?: string;
     debug: boolean;
     baseUrl: string;
     dhisUsername: string;
